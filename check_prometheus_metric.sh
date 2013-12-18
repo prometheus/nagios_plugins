@@ -5,7 +5,7 @@
 
 
 # default configuration
-PROMETHEUS_CLI='./prometheus_cli_test.sh'
+PROMETHEUS_CLI='./prometheus_cli'
 COMPARISON_METHOD=ge
 PROMETHEUS_TIMEOUT=30s
 
@@ -131,13 +131,12 @@ function get_prometheus_result {
   local _PROMETHEUS_CMD
   local _RESULT
   # set up and run the prometheus_cli command
-  printf -v _PROMETHEUS_CMD "%s -server=%s -timeout=%s '%s'" \
+  printf -v _PROMETHEUS_CMD '%s -server=%s -timeout=%s query' \
                             "$PROMETHEUS_CLI" \
                             "$PROMETHEUS_SERVER" \
-                            "$PROMETHEUS_TIMEOUT" \
-                            "$PROMETHEUS_QUERY"
+                            "$PROMETHEUS_TIMEOUT"
                             
-  _RESULT=$( $_PROMETHEUS_CMD )
+  _RESULT=$( $_PROMETHEUS_CMD "$PROMETHEUS_QUERY" )
   
   # check result
   if [[ $_RESULT =~ ^[0-9]+\.?[0-9]*$ ]]
