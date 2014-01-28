@@ -1,4 +1,4 @@
-VERSION  := $(shell git rev-parse --short HEAD)
+VERSION  := 0.1.0
 TARGET   := prometheus-nagios_plugins
 ARCHIVE  := $(TARGET)-$(VERSION).tar.gz
 
