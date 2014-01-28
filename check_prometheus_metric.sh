@@ -5,7 +5,7 @@
 
 
 # default configuration
-PROMETHEUS_CLI='./prometheus_cli'
+PROMETHEUS_CLI=prometheus_cli
 COMPARISON_METHOD=ge
 PROMETHEUS_TIMEOUT=30s
 
@@ -19,12 +19,12 @@ UNKNOWN=3
 function usage {
 
   cat <<'EoL'
-  
+
   check_prometheus_metric.sh - simple prometheus metric extractor for nagios
-  
+
   usage:
   check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD]
-  
+
   options:
     -H HOST     URL of Prometheus host to query, in single quotes
     -q QUERY    Prometheus query, in single quotes, that returns a float or int
@@ -33,7 +33,7 @@ function usage {
     -n NAME     A name for the metric being checked
     -m METHOD   Comparison method, one of gt, ge, lt, le, eq, ne
                 (defaults to ge unless otherwise specified)
-    
+
 EoL
 }
 
@@ -56,7 +56,7 @@ function process_command_line {
                   exit
                 fi
                 ;;
-                
+
       c)        if [[ $OPTARG =~ ^[0-9]+$ ]]
                 then
                   CRITICAL_LEVEL=$OPTARG
@@ -66,7 +66,7 @@ function process_command_line {
                   exit
                 fi
                 ;;
-                
+
       w)        if [[ $OPTARG =~ ^[0-9]+$ ]]
                 then
                   WARNING_LEVEL=$OPTARG
@@ -76,7 +76,7 @@ function process_command_line {
                   exit
                 fi
                 ;;
-                
+
       \?)       NAGIOS_SHORT_TEXT="invalid option: -$OPTARG"
                 NAGIOS_LONG_TEXT="$(usage)"
                 exit
@@ -88,7 +88,7 @@ function process_command_line {
                 ;;
     esac
   done
-  
+
   # check for missing parameters
   if [[ -z $PROMETHEUS_SERVER ]] ||
      [[ -z $PROMETHEUS_QUERY ]] ||
@@ -109,7 +109,7 @@ function on_exit {
   then
     NAGIOS_STATUS=UNKNOWN
   fi
-  
+
   if [[ -z $NAGIOS_SHORT_TEXT ]]
   then
     NAGIOS_SHORT_TEXT='an unknown error occured'
@@ -121,7 +121,7 @@ function on_exit {
   then
     printf '%s\n' "$NAGIOS_LONG_TEXT"
   fi
-  
+
   exit ${!NAGIOS_STATUS} # hint: an indirect variable reference
 }
 
@@ -135,9 +135,9 @@ function get_prometheus_result {
                             "$PROMETHEUS_CLI" \
                             "$PROMETHEUS_SERVER" \
                             "$PROMETHEUS_TIMEOUT"
-                            
+
   _RESULT=$( $_PROMETHEUS_CMD "$PROMETHEUS_QUERY" )
-  
+
   # check result
   if [[ $_RESULT =~ ^[0-9]+\.?[0-9]*$ ]]
   then
