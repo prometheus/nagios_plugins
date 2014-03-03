@@ -136,7 +136,7 @@ function get_prometheus_result {
                             "$PROMETHEUS_SERVER" \
                             "$PROMETHEUS_TIMEOUT"
 
-  _RESULT=$( $_PROMETHEUS_CMD "$PROMETHEUS_QUERY" )
+  _RESULT=$( $_PROMETHEUS_CMD "$PROMETHEUS_QUERY" 2>&1 )
 
   # check result
   if [[ $_RESULT =~ ^[0-9]+\.?[0-9]*$ ]]
