@@ -1,4 +1,4 @@
-VERSION  := 0.1.0
+VERSION  := 0.22.0
 TARGET   := prometheus-nagios_plugins
 ARCHIVE  := $(TARGET)-$(VERSION).tar.gz
 
