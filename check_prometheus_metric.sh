@@ -8,6 +8,7 @@
 PROMETHEUS_CLI=prometheus_cli
 COMPARISON_METHOD=ge
 PROMETHEUS_TIMEOUT=30s
+NAN_OK="false"
 
 # nagios status codes
 OK=0
@@ -78,7 +79,7 @@ function process_command_line {
                 fi
                 ;;
 
-      O)        NAN_OK=0
+      O)        NAN_OK="true"
                 ;;
         
       \?)       NAGIOS_SHORT_TEXT="invalid option: -$OPTARG"
@@ -183,7 +184,7 @@ then
     NAGIOS_SHORT_TEXT="$METRIC_NAME is $PROMETHEUS_RESULT"
   fi
 else
-  if [[ -v NAN_OK && "$PROMETHEUS_RESULT" = "NaN" ]]
+  if [[ "$NAN_OK" = "true" && "$PROMETHEUS_RESULT" = "NaN" ]]
   then
     NAGIOS_STATUS=OK
     NAGIOS_SHORT_TEXT="$METRIC_NAME is $PROMETHEUS_RESULT"
