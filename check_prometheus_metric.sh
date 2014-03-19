@@ -23,16 +23,17 @@ function usage {
   check_prometheus_metric.sh - simple prometheus metric extractor for nagios
 
   usage:
-  check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD]
+  check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O]
 
   options:
     -H HOST     URL of Prometheus host to query, in single quotes
     -q QUERY    Prometheus query, in single quotes, that returns a float or int
-    -w INT      Warning level value
-    -c INT      Critical level value
+    -w INT      Warning level value (must be zero or positive)
+    -c INT      Critical level value (must be zero or positive)
     -n NAME     A name for the metric being checked
     -m METHOD   Comparison method, one of gt, ge, lt, le, eq, ne
                 (defaults to ge unless otherwise specified)
+    -O          Accept NaN as an "OK" result 
 
 EoL
 }
@@ -40,7 +41,7 @@ EoL
 
 function process_command_line {
 
-  while getopts ':H:q:w:c:m:n:' OPT "$@"
+  while getopts ':H:q:w:c:m:n:O' OPT "$@"
   do
     case $OPT in
       H)        PROMETHEUS_SERVER="$OPTARG" ;;
@@ -77,6 +78,9 @@ function process_command_line {
                 fi
                 ;;
 
+      O)        NAN_OK=0
+                ;;
+        
       \?)       NAGIOS_SHORT_TEXT="invalid option: -$OPTARG"
                 NAGIOS_LONG_TEXT="$(usage)"
                 exit
@@ -139,11 +143,18 @@ function get_prometheus_result {
   _RESULT=$( $_PROMETHEUS_CMD "$PROMETHEUS_QUERY" 2>&1 )
 
   # check result
-  if [[ $_RESULT =~ ^[0-9]+\.?[0-9]*$ ]]
+  if [[ $_RESULT =~ ^-?[0-9]+\.?[0-9]*$ ]]
   then
     printf '%.0F' $_RESULT # return an int if result is a number
   else
-    printf '%s' "$_RESULT" # otherwise return as a string
+    case "$_RESULT" in
+      +Inf) printf '%.0F' $(( $WARNING_LEVEL + $CRITICAL_LEVEL )) # something greater than either level
+            ;;
+      -Inf) printf -- '-1' # something smaller than any level
+            ;;
+      *)    printf '%s' "$_RESULT" # otherwise return as a string
+            ;;
+    esac
   fi
 }
 
@@ -157,7 +168,7 @@ process_command_line "$@"
 PROMETHEUS_RESULT="$( get_prometheus_result )"
 
 # check the value
-if [[ $PROMETHEUS_RESULT =~ ^[0-9]+$ ]]
+if [[ $PROMETHEUS_RESULT =~ ^-?[0-9]+$ ]]
 then
   if eval [[ $PROMETHEUS_RESULT -${COMPARISON_METHOD} $CRITICAL_LEVEL ]]
   then
@@ -172,8 +183,14 @@ then
     NAGIOS_SHORT_TEXT="$METRIC_NAME is $PROMETHEUS_RESULT"
   fi
 else
-  NAGIOS_SHORT_TEXT="unable to parse prometheus response"
-  NAGIOS_LONG_TEXT="$METRIC_NAME is $PROMETHEUS_RESULT"
+  if [[ -v NAN_OK && "$PROMETHEUS_RESULT" = "NaN" ]]
+  then
+    NAGIOS_STATUS=OK
+    NAGIOS_SHORT_TEXT="$METRIC_NAME is $PROMETHEUS_RESULT"
+  else    
+    NAGIOS_SHORT_TEXT="unable to parse prometheus response"
+    NAGIOS_LONG_TEXT="$METRIC_NAME is $PROMETHEUS_RESULT"
+  fi
 fi
 
 exit
