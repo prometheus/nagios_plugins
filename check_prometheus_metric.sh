@@ -1,13 +1,12 @@
 #!/bin/bash
 #
 # check_prometheus_metric.sh - nagios plugin wrapper for checking prometheus
-#                              metrics - requires the prometheus_cli tool
-
+#                              metrics - requires curl and jq to be in $PATH
 
 # default configuration
-PROMETHEUS_CLI=prometheus_cli
+CURL=curl
+JQ=jq
 COMPARISON_METHOD=ge
-PROMETHEUS_TIMEOUT=30s
 NAN_OK="false"
 
 # nagios status codes
@@ -27,8 +26,8 @@ function usage {
   check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O]
 
   options:
-    -H HOST     URL of Prometheus host to query, in single quotes
-    -q QUERY    Prometheus query, in single quotes, that returns a float or int
+    -H HOST     URL of Prometheus host to query
+    -q QUERY    Prometheus query that returns a float or int
     -w INT      Warning level value (must be zero or positive)
     -c INT      Critical level value (must be zero or positive)
     -n NAME     A name for the metric being checked
@@ -133,15 +132,9 @@ function on_exit {
 
 function get_prometheus_result {
 
-  local _PROMETHEUS_CMD
   local _RESULT
-  # set up and run the prometheus_cli command
-  printf -v _PROMETHEUS_CMD '%s -server=%s -timeout=%s query' \
-                            "$PROMETHEUS_CLI" \
-                            "$PROMETHEUS_SERVER" \
-                            "$PROMETHEUS_TIMEOUT"
 
-  _RESULT=$( $_PROMETHEUS_CMD "$PROMETHEUS_QUERY" 2>&1 )
+  _RESULT=$( $CURL -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result[1]' )
 
   # check result
   if [[ $_RESULT =~ ^-?[0-9]+\.?[0-9]*$ ]]
