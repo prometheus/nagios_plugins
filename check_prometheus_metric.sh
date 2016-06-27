@@ -43,24 +43,24 @@ function process_command_line {
 
   while getopts ':H:q:w:c:m:n:O' OPT "$@"
   do
-    case $OPT in
+    case ${OPT} in
       H)        PROMETHEUS_SERVER="$OPTARG" ;;
       q)        PROMETHEUS_QUERY="$OPTARG" ;;
       n)        METRIC_NAME="$OPTARG" ;;
 
-      m)        if [[ $OPTARG =~ ^([lg][et]|eq|ne)$ ]]
+      m)        if [[ ${OPTARG} =~ ^([lg][et]|eq|ne)$ ]]
                 then
-                  COMPARISON_METHOD=$OPTARG
+                  COMPARISON_METHOD=${OPTARG}
                 else
-                  NAGIOS_SHORT_TEXT="invalid comparison method: $OPTARG"
+                  NAGIOS_SHORT_TEXT="invalid comparison method: ${OPTARG}"
                   NAGIOS_LONG_TEXT="$(usage)"
                   exit
                 fi
                 ;;
 
-      c)        if [[ $OPTARG =~ ^[0-9]+$ ]]
+      c)        if [[ ${OPTARG} =~ ^[0-9]+$ ]]
                 then
-                  CRITICAL_LEVEL=$OPTARG
+                  CRITICAL_LEVEL=${OPTARG}
                 else
                   NAGIOS_SHORT_TEXT='-c CRITICAL_LEVEL requires an integer'
                   NAGIOS_LONG_TEXT="$(usage)"
@@ -68,9 +68,9 @@ function process_command_line {
                 fi
                 ;;
 
-      w)        if [[ $OPTARG =~ ^[0-9]+$ ]]
+      w)        if [[ ${OPTARG} =~ ^[0-9]+$ ]]
                 then
-                  WARNING_LEVEL=$OPTARG
+                  WARNING_LEVEL=${OPTARG}
                 else
                   NAGIOS_SHORT_TEXT='-w WARNING_LEVEL requires an integer'
                   NAGIOS_LONG_TEXT="$(usage)"
@@ -94,11 +94,11 @@ function process_command_line {
   done
 
   # check for missing parameters
-  if [[ -z $PROMETHEUS_SERVER ]] ||
-     [[ -z $PROMETHEUS_QUERY ]] ||
-     [[ -z $METRIC_NAME ]] ||
-     [[ -z $WARNING_LEVEL ]] ||
-     [[ -z $CRITICAL_LEVEL ]]
+  if [[ -z ${PROMETHEUS_SERVER} ]] ||
+     [[ -z ${PROMETHEUS_QUERY} ]] ||
+     [[ -z ${METRIC_NAME} ]] ||
+     [[ -z ${WARNING_LEVEL} ]] ||
+     [[ -z ${CRITICAL_LEVEL} ]]
   then
     NAGIOS_SHORT_TEXT='missing required option'
     NAGIOS_LONG_TEXT="$(usage)"
@@ -109,21 +109,21 @@ function process_command_line {
 
 function on_exit {
 
-  if [[ -z $NAGIOS_STATUS ]]
+  if [[ -z ${NAGIOS_STATUS} ]]
   then
     NAGIOS_STATUS=UNKNOWN
   fi
 
-  if [[ -z $NAGIOS_SHORT_TEXT ]]
+  if [[ -z ${NAGIOS_SHORT_TEXT} ]]
   then
     NAGIOS_SHORT_TEXT='an unknown error occured'
   fi
 
-  printf '%s - %s\n' $NAGIOS_STATUS "$NAGIOS_SHORT_TEXT"
+  printf '%s - %s\n' ${NAGIOS_STATUS} "${NAGIOS_SHORT_TEXT}"
 
-  if [[ -n $NAGIOS_LONG_TEXT ]]
+  if [[ -n ${NAGIOS_LONG_TEXT} ]]
   then
-    printf '%s\n' "$NAGIOS_LONG_TEXT"
+    printf '%s\n' "${NAGIOS_LONG_TEXT}"
   fi
 
   exit ${!NAGIOS_STATUS} # hint: an indirect variable reference
@@ -134,19 +134,19 @@ function get_prometheus_result {
 
   local _RESULT
 
-  _RESULT=$( $CURL -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result[1]' )
+  _RESULT=$( ${CURL} -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result[1]' )
 
   # check result
-  if [[ $_RESULT =~ ^-?[0-9]+\.?[0-9]*$ ]]
+  if [[ ${_RESULT} =~ ^-?[0-9]+\.?[0-9]*$ ]]
   then
-    printf '%.0F' $_RESULT # return an int if result is a number
+    printf '%.0F' ${_RESULT} # return an int if result is a number
   else
-    case "$_RESULT" in
-      +Inf) printf '%.0F' $(( $WARNING_LEVEL + $CRITICAL_LEVEL )) # something greater than either level
+    case "${_RESULT}" in
+      +Inf) printf '%.0F' $(( ${WARNING_LEVEL} + ${CRITICAL_LEVEL} )) # something greater than either level
             ;;
       -Inf) printf -- '-1' # something smaller than any level
             ;;
-      *)    printf '%s' "$_RESULT" # otherwise return as a string
+      *)    printf '%s' "${_RESULT}" # otherwise return as a string
             ;;
     esac
   fi
@@ -162,28 +162,28 @@ process_command_line "$@"
 PROMETHEUS_RESULT="$( get_prometheus_result )"
 
 # check the value
-if [[ $PROMETHEUS_RESULT =~ ^-?[0-9]+$ ]]
+if [[ ${PROMETHEUS_RESULT} =~ ^-?[0-9]+$ ]]
 then
-  if eval [[ $PROMETHEUS_RESULT -${COMPARISON_METHOD} $CRITICAL_LEVEL ]]
+  if eval [[ ${PROMETHEUS_RESULT} -${COMPARISON_METHOD} ${CRITICAL_LEVEL} ]]
   then
     NAGIOS_STATUS=CRITICAL
-    NAGIOS_SHORT_TEXT="$METRIC_NAME is $PROMETHEUS_RESULT"
-  elif eval [[ $PROMETHEUS_RESULT -${COMPARISON_METHOD} $WARNING_LEVEL ]]
+    NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
+  elif eval [[ ${PROMETHEUS_RESULT} -${COMPARISON_METHOD} $WARNING_LEVEL ]]
   then
     NAGIOS_STATUS=WARNING
-    NAGIOS_SHORT_TEXT="$METRIC_NAME is $PROMETHEUS_RESULT"
+    NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
   else
     NAGIOS_STATUS=OK
-    NAGIOS_SHORT_TEXT="$METRIC_NAME is $PROMETHEUS_RESULT"
+    NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
   fi
 else
-  if [[ "$NAN_OK" = "true" && "$PROMETHEUS_RESULT" = "NaN" ]]
+  if [[ "${NAN_OK}" = "true" && "${PROMETHEUS_RESULT}" = "NaN" ]]
   then
     NAGIOS_STATUS=OK
-    NAGIOS_SHORT_TEXT="$METRIC_NAME is $PROMETHEUS_RESULT"
+    NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
   else    
     NAGIOS_SHORT_TEXT="unable to parse prometheus response"
-    NAGIOS_LONG_TEXT="$METRIC_NAME is $PROMETHEUS_RESULT"
+    NAGIOS_LONG_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
   fi
 fi
 
