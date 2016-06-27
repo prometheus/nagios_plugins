@@ -1,6 +1,24 @@
 # nagios_plugins
 
-nagios plugins for alerting on prometheus query results
+Nagios plugin (in fact only one) for alerting on prometheus query results.
+
+You need to add the following commands to your Nagios configuration to use it:
+```
+define command {
+    command_name check_prometheus
+    command_line $USER1$/check_prometheus_metric.sh -H '$ARG1$' -q '$ARG2$' -w '$ARG3$' -c '$ARG4$' -n '$ARG5$' -m '$ARG6$'
+}
+
+# check_prometheus, treating a NaN result as ok
+define command {
+    command_name check_prometheus_nan_ok
+    command_line $USER1$/check_prometheus_metric.sh -H '$ARG1$' -q '$ARG2$' -w '$ARG3$' -c '$ARG4$' -n '$ARG5$' -m '$ARG6$' -O
+}
+```
+
+The [`curl`](https://curl.haxx.se/) and the
+[`jq`](https://stedolan.github.io/jq/) command must be installed for the plugin
+to work.
 
 ## Usage
 
