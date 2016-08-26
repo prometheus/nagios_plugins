@@ -134,7 +134,7 @@ function get_prometheus_result {
 
   local _RESULT
 
-  _RESULT=$( ${CURL} -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result[1]' )
+  _RESULT=$( ${CURL} -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result[0].value[1]' )
 
   # check result
   if [[ ${_RESULT} =~ ^-?[0-9]+\.?[0-9]*$ ]]
