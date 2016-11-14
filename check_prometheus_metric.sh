@@ -5,9 +5,13 @@
 
 # default configuration
 CURL=curl
+ECHO=echo
 JQ=jq
+XARGS=xargs
 COMPARISON_METHOD=ge
 NAN_OK="false"
+NAGIOS_INFO="false"
+PROMETHEUS_QUERY_TYPE="scalar"
 
 # nagios status codes
 OK=0
@@ -23,17 +27,19 @@ function usage {
   check_prometheus_metric.sh - simple prometheus metric extractor for nagios
 
   usage:
-  check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O]
+  check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O] [-i] [-t QUERY_TYPE]
 
   options:
-    -H HOST     URL of Prometheus host to query
-    -q QUERY    Prometheus query that returns a float or int
-    -w INT      Warning level value (must be zero or positive)
-    -c INT      Critical level value (must be zero or positive)
-    -n NAME     A name for the metric being checked
-    -m METHOD   Comparison method, one of gt, ge, lt, le, eq, ne
-                (defaults to ge unless otherwise specified)
-    -O          Accept NaN as an "OK" result 
+    -H HOST          URL of Prometheus host to query
+    -q QUERY         Prometheus query, in single quotes, that returns by default a float or int (see -t)
+    -w INT           Warning level value (must be zero or positive)
+    -c INT           Critical level value (must be zero or positive)
+    -n NAME          A name for the metric being checked
+    -m METHOD        Comparison method, one of gt, ge, lt, le, eq, ne
+                     (defaults to ge unless otherwise specified)
+    -O               Accept NaN as an "OK" result 
+    -i               Print metric into the Nagios message
+    -t QUERY_TYPE    Prometheus query return type: scalar (default) or dictionary
 
 EoL
 }
@@ -41,11 +47,20 @@ EoL
 
 function process_command_line {
 
-  while getopts ':H:q:w:c:m:n:O' OPT "$@"
+  while getopts ':H:q:t:w:c:m:n:O:i' OPT "$@"
   do
     case ${OPT} in
       H)        PROMETHEUS_SERVER="$OPTARG" ;;
       q)        PROMETHEUS_QUERY="$OPTARG" ;;
+      t)        if [[ ${OPTARG} =~ ^(scalar|dictionary)$ ]]
+                then
+                  PROMETHEUS_QUERY_TYPE=${OPTARG}
+                else
+                  NAGIOS_SHORT_TEXT="invalid comparison method: ${OPTARG}"
+                  NAGIOS_LONG_TEXT="$(usage)"
+                  exit
+                fi
+                ;;
       n)        METRIC_NAME="$OPTARG" ;;
 
       m)        if [[ ${OPTARG} =~ ^([lg][et]|eq|ne)$ ]]
@@ -80,7 +95,11 @@ function process_command_line {
 
       O)        NAN_OK="true"
                 ;;
-        
+
+      i)        NAGIOS_INFO="true"
+                ;;
+
+
       \?)       NAGIOS_SHORT_TEXT="invalid option: -$OPTARG"
                 NAGIOS_LONG_TEXT="$(usage)"
                 exit
@@ -96,6 +115,7 @@ function process_command_line {
   # check for missing parameters
   if [[ -z ${PROMETHEUS_SERVER} ]] ||
      [[ -z ${PROMETHEUS_QUERY} ]] ||
+     [[ -z ${PROMETHEUS_QUERY_TYPE} ]] ||
      [[ -z ${METRIC_NAME} ]] ||
      [[ -z ${WARNING_LEVEL} ]] ||
      [[ -z ${CRITICAL_LEVEL} ]]
@@ -130,11 +150,20 @@ function on_exit {
 }
 
 
-function get_prometheus_result {
+function get_prometheus_raw_result {
 
   local _RESULT
 
-  _RESULT=$( ${CURL} -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result[1]' )
+  _RESULT=$( ${CURL} -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result' )
+  printf '%s' "${_RESULT}"
+
+}
+
+function get_prometheus_scalar_result {
+
+  local _RESULT
+
+  _RESULT=$( ${ECHO} $1 | $JQ -r '.[1]' )
 
   # check result
   if [[ ${_RESULT} =~ ^-?[0-9]+\.?[0-9]*$ ]]
@@ -152,14 +181,43 @@ function get_prometheus_result {
   fi
 }
 
+function get_prometheus_dictionary_value {
+
+  local _RESULT
+
+  _RESULT=$( ${ECHO} $1 | $JQ -r '.[0].value?' )
+  printf '%s' "${_RESULT}"
+
+}
+
+function get_prometheus_dictionary_metric {
+
+  local _RESULT
+
+  _RESULT=$( ${ECHO} $1 | $JQ -r '.[0].metric?' | ${XARGS} )
+  printf '%s' "${_RESULT}"
+
+}
+
 # set up exit function
 trap on_exit EXIT TERM
 
 # process the cli options
 process_command_line "$@"
 
-# get the metric value from prometheus
-PROMETHEUS_RESULT="$( get_prometheus_result )"
+# get the raw query from prometheus
+PROMETHEUS_RAW_RESULT="$( get_prometheus_raw_result )"
+
+# extract the metric value from the raw prometheus result
+if [[ "${PROMETHEUS_QUERY_TYPE}" = "scalar" ]]
+then
+    PROMETHEUS_RESULT=$( get_prometheus_scalar_result "$PROMETHEUS_RAW_RESULT" )
+    PROMETHEUS_METRIC=UNKNOWN
+else
+    PROMETHEUS_VALUE=$( get_prometheus_dictionary_value "$PROMETHEUS_RAW_RESULT" )
+    PROMETHEUS_RESULT=$( get_prometheus_scalar_result "$PROMETHEUS_VALUE" )
+    PROMETHEUS_METRIC=$( get_prometheus_dictionary_metric "$PROMETHEUS_RAW_RESULT" ) 
+fi
 
 # check the value
 if [[ ${PROMETHEUS_RESULT} =~ ^-?[0-9]+$ ]]
@@ -168,13 +226,25 @@ then
   then
     NAGIOS_STATUS=CRITICAL
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
+    if [[ "${NAGIOS_INFO}" = "true" ]]
+    then
+        NAGIOS_SHORT_TEXT="${NAGIOS_SHORT_TEXT}: ${PROMETHEUS_METRIC}"
+    fi
   elif eval [[ ${PROMETHEUS_RESULT} -${COMPARISON_METHOD} $WARNING_LEVEL ]]
   then
     NAGIOS_STATUS=WARNING
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
+    if [[ "${NAGIOS_INFO}" = "true" ]]
+    then
+        NAGIOS_SHORT_TEXT="${NAGIOS_SHORT_TEXT}: ${PROMETHEUS_METRIC}"
+    fi
   else
     NAGIOS_STATUS=OK
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
+    if [[ "${NAGIOS_INFO}" = "true" ]]
+    then
+        NAGIOS_SHORT_TEXT="${NAGIOS_SHORT_TEXT}: ${PROMETHEUS_METRIC}"
+    fi
   fi
 else
   if [[ "${NAN_OK}" = "true" && "${PROMETHEUS_RESULT}" = "NaN" ]]
