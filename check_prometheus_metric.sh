@@ -38,8 +38,9 @@ function usage {
     -m METHOD        Comparison method, one of gt, ge, lt, le, eq, ne
                      (defaults to ge unless otherwise specified)
     -O               Accept NaN as an "OK" result 
-    -i               Print metric into the Nagios message
-    -t QUERY_TYPE    Prometheus query return type: scalar (default) or dictionary
+    -i               Print the extra metric information into the Nagios message
+    -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector
+                     The first element of the vector is used for the check.
 
 EoL
 }
@@ -47,20 +48,11 @@ EoL
 
 function process_command_line {
 
-  while getopts ':H:q:t:w:c:m:n:O:i' OPT "$@"
+  while getopts ':H:q:w:c:m:n:Oit:' OPT "$@"
   do
     case ${OPT} in
       H)        PROMETHEUS_SERVER="$OPTARG" ;;
       q)        PROMETHEUS_QUERY="$OPTARG" ;;
-      t)        if [[ ${OPTARG} =~ ^(scalar|dictionary)$ ]]
-                then
-                  PROMETHEUS_QUERY_TYPE=${OPTARG}
-                else
-                  NAGIOS_SHORT_TEXT="invalid comparison method: ${OPTARG}"
-                  NAGIOS_LONG_TEXT="$(usage)"
-                  exit
-                fi
-                ;;
       n)        METRIC_NAME="$OPTARG" ;;
 
       m)        if [[ ${OPTARG} =~ ^([lg][et]|eq|ne)$ ]]
@@ -99,6 +91,15 @@ function process_command_line {
       i)        NAGIOS_INFO="true"
                 ;;
 
+      t)        if [[ ${OPTARG} =~ ^(scalar|vector)$ ]]
+                then
+                  PROMETHEUS_QUERY_TYPE=${OPTARG}
+                else
+                  NAGIOS_SHORT_TEXT="invalid comparison method: ${OPTARG}"
+                  NAGIOS_LONG_TEXT="$(usage)"
+                  exit
+                fi
+                ;;
 
       \?)       NAGIOS_SHORT_TEXT="invalid option: -$OPTARG"
                 NAGIOS_LONG_TEXT="$(usage)"
@@ -125,7 +126,6 @@ function process_command_line {
     exit
   fi
 }
-
 
 function on_exit {
 
@@ -181,19 +181,21 @@ function get_prometheus_scalar_result {
   fi
 }
 
-function get_prometheus_dictionary_value {
+function get_prometheus_vector_value {
 
   local _RESULT
 
+  # return the value of the first element of the vector
   _RESULT=$( ${ECHO} $1 | $JQ -r '.[0].value?' )
   printf '%s' "${_RESULT}"
 
 }
 
-function get_prometheus_dictionary_metric {
+function get_prometheus_vector_metric {
 
   local _RESULT
 
+  # return the metric information of the first element of the vector
   _RESULT=$( ${ECHO} $1 | $JQ -r '.[0].metric?' | ${XARGS} )
   printf '%s' "${_RESULT}"
 
@@ -214,9 +216,9 @@ then
     PROMETHEUS_RESULT=$( get_prometheus_scalar_result "$PROMETHEUS_RAW_RESULT" )
     PROMETHEUS_METRIC=UNKNOWN
 else
-    PROMETHEUS_VALUE=$( get_prometheus_dictionary_value "$PROMETHEUS_RAW_RESULT" )
+    PROMETHEUS_VALUE=$( get_prometheus_vector_value "$PROMETHEUS_RAW_RESULT" )
     PROMETHEUS_RESULT=$( get_prometheus_scalar_result "$PROMETHEUS_VALUE" )
-    PROMETHEUS_METRIC=$( get_prometheus_dictionary_metric "$PROMETHEUS_RAW_RESULT" ) 
+    PROMETHEUS_METRIC=$( get_prometheus_vector_metric "$PROMETHEUS_RAW_RESULT" ) 
 fi
 
 # check the value
@@ -226,25 +228,13 @@ then
   then
     NAGIOS_STATUS=CRITICAL
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
-    if [[ "${NAGIOS_INFO}" = "true" ]]
-    then
-        NAGIOS_SHORT_TEXT="${NAGIOS_SHORT_TEXT}: ${PROMETHEUS_METRIC}"
-    fi
   elif eval [[ ${PROMETHEUS_RESULT} -${COMPARISON_METHOD} $WARNING_LEVEL ]]
   then
     NAGIOS_STATUS=WARNING
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
-    if [[ "${NAGIOS_INFO}" = "true" ]]
-    then
-        NAGIOS_SHORT_TEXT="${NAGIOS_SHORT_TEXT}: ${PROMETHEUS_METRIC}"
-    fi
   else
     NAGIOS_STATUS=OK
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
-    if [[ "${NAGIOS_INFO}" = "true" ]]
-    then
-        NAGIOS_SHORT_TEXT="${NAGIOS_SHORT_TEXT}: ${PROMETHEUS_METRIC}"
-    fi
   fi
 else
   if [[ "${NAN_OK}" = "true" && "${PROMETHEUS_RESULT}" = "NaN" ]]
@@ -255,6 +245,10 @@ else
     NAGIOS_SHORT_TEXT="unable to parse prometheus response"
     NAGIOS_LONG_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
   fi
+fi
+if [[ "${NAGIOS_INFO}" = "true" ]]
+then
+    NAGIOS_SHORT_TEXT="${NAGIOS_SHORT_TEXT}: ${PROMETHEUS_METRIC}"
 fi
 
 exit
