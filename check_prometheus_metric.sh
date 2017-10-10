@@ -3,6 +3,9 @@
 # check_prometheus_metric.sh - nagios plugin wrapper for checking prometheus
 #                              metrics - requires curl and jq to be in $PATH
 
+# Avoid locale complications.
+export LC_ALL=C
+
 # default configuration
 CURL=curl
 ECHO=echo
