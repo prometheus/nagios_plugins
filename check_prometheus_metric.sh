@@ -1,9 +1,12 @@
 #!/bin/bash
 #
-# check_prometheus_metric.sh - nagios plugin wrapper for checking prometheus
-#                              metrics - requires curl and jq to be in $PATH
+# check_prometheus_metric.sh - Nagios plugin wrapper for checking Prometheus
+#                              metrics. Requires curl and jq to be in $PATH.
 
-# default configuration
+# Avoid locale complications:
+export LC_ALL=C
+
+# Default configuration:
 CURL=curl
 ECHO=echo
 JQ=jq
@@ -13,7 +16,7 @@ NAN_OK="false"
 NAGIOS_INFO="false"
 PROMETHEUS_QUERY_TYPE="scalar"
 
-# nagios status codes
+# Nagios status codes:
 OK=0
 WARNING=1
 CRITICAL=2
@@ -24,22 +27,23 @@ function usage {
 
   cat <<'EoL'
 
-  check_prometheus_metric.sh - simple prometheus metric extractor for nagios
+  check_prometheus_metric.sh - Nagios plugin wrapper for checking Prometheus
+                               metrics. Requires curl and jq to be in $PATH.
 
-  usage:
+  Usage:
   check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O] [-i] [-t QUERY_TYPE]
 
   options:
-    -H HOST          URL of Prometheus host to query
-    -q QUERY         Prometheus query, in single quotes, that returns by default a float or int (see -t)
-    -w INT           Warning level value (must be zero or positive)
-    -c INT           Critical level value (must be zero or positive)
-    -n NAME          A name for the metric being checked
-    -m METHOD        Comparison method, one of gt, ge, lt, le, eq, ne
-                     (defaults to ge unless otherwise specified)
-    -O               Accept NaN as an "OK" result 
-    -i               Print the extra metric information into the Nagios message
-    -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector
+    -H HOST          URL of Prometheus host to query.
+    -q QUERY         Prometheus query, in single quotes, that returns by default a float or int (see -t).
+    -w INT           Warning level value (must be zero or positive).
+    -c INT           Critical level value (must be zero or positive).
+    -n NAME          A name for the metric being checked.
+    -m METHOD        Comparison method, one of gt, ge, lt, le, eq, ne.
+                     (Defaults to ge unless otherwise specified.)
+    -O               Accept NaN as an "OK" result .
+    -i               Print the extra metric information into the Nagios message.
+    -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector.
                      The first element of the vector is used for the check.
 
 EoL
