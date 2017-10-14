@@ -14,6 +14,7 @@ XARGS=xargs
 COMPARISON_METHOD=ge
 NAN_OK="false"
 NAGIOS_INFO="false"
+NAGIOS_STATISTICS="false"
 PROMETHEUS_QUERY_TYPE="scalar"
 
 # Nagios status codes:
@@ -31,7 +32,7 @@ function usage {
                                metrics. Requires curl and jq to be in $PATH.
 
   Usage:
-  check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O] [-i] [-t QUERY_TYPE]
+  check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O] [-i] [-t QUERY_TYPE] [-s]
 
   options:
     -H HOST          URL of Prometheus host to query.
@@ -39,12 +40,14 @@ function usage {
     -w INT           Warning level value (must be zero or positive).
     -c INT           Critical level value (must be zero or positive).
     -n NAME          A name for the metric being checked.
-    -m METHOD        Comparison method, one of gt, ge, lt, le, eq, ne.
+    -m METHOD        Comparison method, one of gt, ge, lt, le, eq, ne, ot.
                      (Defaults to ge unless otherwise specified.)
+                     (ot is older that, requires -a <seconds>)
     -O               Accept NaN as an "OK" result .
     -i               Print the extra metric information into the Nagios message.
     -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector.
                      The first element of the vector is used for the check.
+    -s               Add statistics
 
 EoL
 }
@@ -52,14 +55,14 @@ EoL
 
 function process_command_line {
 
-  while getopts ':H:q:w:c:m:n:Oit:' OPT "$@"
+  while getopts ':H:q:w:c:m:n:Oit:s' OPT "$@"
   do
     case ${OPT} in
       H)        PROMETHEUS_SERVER="$OPTARG" ;;
       q)        PROMETHEUS_QUERY="$OPTARG" ;;
       n)        METRIC_NAME="$OPTARG" ;;
 
-      m)        if [[ ${OPTARG} =~ ^([lg][et]|eq|ne)$ ]]
+      m)        if [[ ${OPTARG} =~ ^([lg][et]|eq|ne|ot)$ ]]
                 then
                   COMPARISON_METHOD=${OPTARG}
                 else
@@ -93,6 +96,9 @@ function process_command_line {
                 ;;
 
       i)        NAGIOS_INFO="true"
+                ;;
+
+      s)        NAGIOS_STATISTICS="true"
                 ;;
 
       t)        if [[ ${OPTARG} =~ ^(scalar|vector)$ ]]
@@ -228,7 +234,25 @@ fi
 # check the value
 if [[ ${PROMETHEUS_RESULT} =~ ^-?[0-9]+$ ]]
 then
-  if eval [[ ${PROMETHEUS_RESULT} -${COMPARISON_METHOD} ${CRITICAL_LEVEL} ]]
+  NAGIOS_STATVALUE=${PROMETHEUS_RESULT}
+  if [[ ${COMPARISON_METHOD} == "ot" ]]
+  then
+    NOW=$(date +'%s')
+    ((AGE=${NOW}-${PROMETHEUS_RESULT}))
+    NAGIOS_STATVALUE=${AGE}
+    if [[ ${AGE} -gt ${CRITICAL_LEVEL} ]]
+    then
+      NAGIOS_STATUS=CRITICAL
+      NAGIOS_SHORT_TEXT="${METRIC_NAME} with value ${PROMETHEUS_RESULT} is older than ${CRITICAL_LEVEL} seconds (age ${AGE}s)"
+    elif [[ ${AGE} -gt ${WARNING_LEVEL} ]]
+    then
+      NAGIOS_STATUS=WARNING
+      NAGIOS_SHORT_TEXT="${METRIC_NAME} with value ${PROMETHEUS_RESULT} is older than ${WARNING_LEVEL} seconds (age ${AGE}s)"
+    else
+      NAGIOS_STATUS=OK
+      NAGIOS_SHORT_TEXT="${METRIC_NAME} with value ${PROMETHEUS_RESULT} is fresh (age ${AGE}s)"
+    fi
+  elif eval [[ ${PROMETHEUS_RESULT} -${COMPARISON_METHOD} ${CRITICAL_LEVEL} ]]
   then
     NAGIOS_STATUS=CRITICAL
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
@@ -250,9 +274,15 @@ else
     NAGIOS_LONG_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
   fi
 fi
+
 if [[ "${NAGIOS_INFO}" = "true" ]]
 then
     NAGIOS_SHORT_TEXT="${NAGIOS_SHORT_TEXT}: ${PROMETHEUS_METRIC}"
+fi
+
+if [[ "${NAGIOS_STATISTICS}" = "true" ]]
+then
+    NAGIOS_SHORT_TEXT="${NAGIOS_SHORT_TEXT} | ${METRIC_NAME}=${NAGIOS_STATVALUE}"
 fi
 
 exit

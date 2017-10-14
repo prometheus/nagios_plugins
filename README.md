@@ -51,7 +51,7 @@ to work.
     check_prometheus_metric.sh - simple prometheus metric extractor for nagios
   
       usage:
-      check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O] [-i] [-t QUERY_TYPE]
+      check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O] [-i] [-t QUERY_TYPE] [-s]
     
       options:
         -H HOST          URL of Prometheus host to query
@@ -59,9 +59,11 @@ to work.
         -w INT           Warning level value (must be zero or positive)
         -c INT           Critical level value (must be zero or positive)
         -n NAME          A name for the metric being checked
-        -m METHOD        Comparison method, one of gt, ge, lt, le, eq, ne
-                         (defaults to ge unless otherwise specified)
+        -m METHOD        Comparison method, one of gt, ge, lt, le, eq, ne, ot.
+                         (Defaults to ge unless otherwise specified.)
+                         (ot is older than, epoch compared with now)
         -O               Accept NaN as an "OK" result 
         -i               Print the extra metric information into the Nagios message
         -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector.
                          The first element of the vector is used for the check.
+        -s               Add statistics
