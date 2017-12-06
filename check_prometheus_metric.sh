@@ -7,9 +7,9 @@
 export LC_ALL=C
 
 # Default configuration:
-CURL=curl
+CURL=$(which curl) || { echo 'Unable to find path for curl. Please install jq and ensure it is in your $PATH' ; exit 2 ; }
 ECHO=echo
-JQ=jq
+JQ=$(which jq) || { echo 'Unable to find path for jq. Please install jq and ensure it is in your $PATH' ; exit 2 ; }
 XARGS=xargs
 COMPARISON_METHOD=ge
 NAN_OK="false"
