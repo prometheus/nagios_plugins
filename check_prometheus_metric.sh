@@ -158,7 +158,7 @@ function get_prometheus_raw_result {
 
   local _RESULT
 
-  _RESULT=$( ${CURL} -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result' )
+  _RESULT=$( ${CURL} -ksgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result' )
   printf '%s' "${_RESULT}"
 
 }
