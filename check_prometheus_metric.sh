@@ -45,6 +45,7 @@ function usage {
     -i               Print the extra metric information into the Nagios message.
     -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector.
                      The first element of the vector is used for the check.
+    -C CARCERT       TLS certificate
 
 EoL
 }
@@ -52,7 +53,7 @@ EoL
 
 function process_command_line {
 
-  while getopts ':H:q:w:c:m:n:Oit:' OPT "$@"
+  while getopts ':H:q:w:c:m:n:OitC:' OPT "$@"
   do
     case ${OPT} in
       H)        PROMETHEUS_SERVER="$OPTARG" ;;
@@ -103,6 +104,9 @@ function process_command_line {
                   NAGIOS_LONG_TEXT="$(usage)"
                   exit
                 fi
+                ;;
+
+      C)        CACERT="$OPTARG"
                 ;;
 
       \?)       NAGIOS_SHORT_TEXT="invalid option: -$OPTARG"
@@ -158,7 +162,7 @@ function get_prometheus_raw_result {
 
   local _RESULT
 
-  _RESULT=$( ${CURL} -ksgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result' )
+  _RESULT=$( ${CURL} --cacert ${CACERT} -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result' )
   printf '%s' "${_RESULT}"
 
 }
