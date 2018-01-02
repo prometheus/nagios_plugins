@@ -7,10 +7,6 @@
 export LC_ALL=C
 
 # Default configuration:
-CURL=curl
-ECHO=echo
-JQ=jq
-XARGS=xargs
 COMPARISON_METHOD=ge
 NAN_OK="false"
 NAGIOS_INFO="false"
@@ -22,6 +18,17 @@ WARNING=1
 CRITICAL=2
 UNKNOWN=3
 
+if ! type curl >/dev/null 2>&1
+then
+  echo 'ERROR: Missing "curl" command'
+  exit ${UNKNOWN}
+fi
+
+if ! type jq >/dev/null 2>&1
+then
+  echo 'ERROR: Missing "jq" command'
+  exit ${UNKNOWN}
+fi
 
 function usage {
 
@@ -158,7 +165,7 @@ function get_prometheus_raw_result {
 
   local _RESULT
 
-  _RESULT=$( ${CURL} -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result' )
+  _RESULT=$(curl -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | jq -r '.data.result')
   printf '%s' "${_RESULT}"
 
 }
@@ -167,7 +174,7 @@ function get_prometheus_scalar_result {
 
   local _RESULT
 
-  _RESULT=$( ${ECHO} $1 | $JQ -r '.[1]' )
+  _RESULT=$(echo $1 | jq -r '.[1]')
 
   # check result
   if [[ ${_RESULT} =~ ^-?[0-9]+\.?[0-9]*$ ]]
@@ -190,7 +197,7 @@ function get_prometheus_vector_value {
   local _RESULT
 
   # return the value of the first element of the vector
-  _RESULT=$( ${ECHO} $1 | $JQ -r '.[0].value?' )
+  _RESULT=$(echo $1 | jq -r '.[0].value?')
   printf '%s' "${_RESULT}"
 
 }
@@ -200,7 +207,7 @@ function get_prometheus_vector_metric {
   local _RESULT
 
   # return the metric information of the first element of the vector
-  _RESULT=$( ${ECHO} $1 | $JQ -r '.[0].metric?' | ${XARGS} )
+  _RESULT=$(echo $1 | jq -r '.[0].metric?' | xargs)
   printf '%s' "${_RESULT}"
 
 }
