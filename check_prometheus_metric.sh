@@ -7,6 +7,7 @@
 export LC_ALL=C
 
 # Default configuration:
+CURL_OPTS=""
 COMPARISON_METHOD=ge
 NAN_OK="false"
 NAGIOS_INFO="false"
@@ -48,6 +49,7 @@ function usage {
     -n NAME          A name for the metric being checked.
     -m METHOD        Comparison method, one of gt, ge, lt, le, eq, ne.
                      (Defaults to ge unless otherwise specified.)
+    -C CURL_OPTS     Additional flags to pass to curl.
     -O               Accept NaN as an "OK" result .
     -i               Print the extra metric information into the Nagios message.
     -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector.
@@ -59,7 +61,7 @@ EoL
 
 function process_command_line {
 
-  while getopts ':H:q:w:c:m:n:Oit:' OPT "$@"
+  while getopts ':H:q:w:c:m:n:C:Oit:' OPT "$@"
   do
     case ${OPT} in
       H)        PROMETHEUS_SERVER="$OPTARG" ;;
@@ -96,6 +98,8 @@ function process_command_line {
                 fi
                 ;;
 
+      C)        CURL_OPTS="${OPTARG}"
+                ;;
       O)        NAN_OK="true"
                 ;;
 
@@ -165,7 +169,7 @@ function get_prometheus_raw_result {
 
   local _RESULT
 
-  _RESULT=$(curl -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | jq -r '.data.result')
+  _RESULT=$(curl -sgG --data-urlencode ${CURL_OPTS} "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | jq -r '.data.result')
   printf '%s' "${_RESULT}"
 
 }
