@@ -7,10 +7,7 @@
 export LC_ALL=C
 
 # Default configuration:
-CURL=curl
-ECHO=echo
-JQ=jq
-XARGS=xargs
+CURL_OPTS=""
 COMPARISON_METHOD=ge
 NAN_OK="false"
 NAGIOS_INFO="false"
@@ -22,6 +19,17 @@ WARNING=1
 CRITICAL=2
 UNKNOWN=3
 
+if ! type curl >/dev/null 2>&1
+then
+  echo 'ERROR: Missing "curl" command'
+  exit ${UNKNOWN}
+fi
+
+if ! type jq >/dev/null 2>&1
+then
+  echo 'ERROR: Missing "jq" command'
+  exit ${UNKNOWN}
+fi
 
 function usage {
 
@@ -41,6 +49,7 @@ function usage {
     -n NAME          A name for the metric being checked.
     -m METHOD        Comparison method, one of gt, ge, lt, le, eq, ne.
                      (Defaults to ge unless otherwise specified.)
+    -C CURL_OPTS     Additional flags to pass to curl.
     -O               Accept NaN as an "OK" result .
     -i               Print the extra metric information into the Nagios message.
     -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector.
@@ -52,7 +61,7 @@ EoL
 
 function process_command_line {
 
-  while getopts ':H:q:w:c:m:n:Oit:' OPT "$@"
+  while getopts ':H:q:w:c:m:n:C:Oit:' OPT "$@"
   do
     case ${OPT} in
       H)        PROMETHEUS_SERVER="$OPTARG" ;;
@@ -89,6 +98,8 @@ function process_command_line {
                 fi
                 ;;
 
+      C)        CURL_OPTS="${OPTARG}"
+                ;;
       O)        NAN_OK="true"
                 ;;
 
@@ -158,7 +169,7 @@ function get_prometheus_raw_result {
 
   local _RESULT
 
-  _RESULT=$( ${CURL} -sgG --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | $JQ -r '.data.result' )
+  _RESULT=$(curl -sgG --data-urlencode ${CURL_OPTS} "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | jq -r '.data.result')
   printf '%s' "${_RESULT}"
 
 }
@@ -167,7 +178,7 @@ function get_prometheus_scalar_result {
 
   local _RESULT
 
-  _RESULT=$( ${ECHO} $1 | $JQ -r '.[1]' )
+  _RESULT=$(echo $1 | jq -r '.[1]')
 
   # check result
   if [[ ${_RESULT} =~ ^-?[0-9]+\.?[0-9]*$ ]]
@@ -190,7 +201,7 @@ function get_prometheus_vector_value {
   local _RESULT
 
   # return the value of the first element of the vector
-  _RESULT=$( ${ECHO} $1 | $JQ -r '.[0].value?' )
+  _RESULT=$(echo $1 | jq -r '.[0].value?')
   printf '%s' "${_RESULT}"
 
 }
@@ -200,7 +211,7 @@ function get_prometheus_vector_metric {
   local _RESULT
 
   # return the metric information of the first element of the vector
-  _RESULT=$( ${ECHO} $1 | $JQ -r '.[0].metric?' | ${XARGS} )
+  _RESULT=$(echo $1 | jq -r '.[0].metric?' | xargs)
   printf '%s' "${_RESULT}"
 
 }
