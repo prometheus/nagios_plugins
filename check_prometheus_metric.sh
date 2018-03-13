@@ -169,7 +169,7 @@ function get_prometheus_raw_result {
 
   local _RESULT
 
-  _RESULT=$(curl -sgG --data-urlencode ${CURL_OPTS} "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | jq -r '.data.result')
+  _RESULT=$(curl -sgG ${CURL_OPTS} --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | jq -r '.data.result')
   printf '%s' "${_RESULT}"
 
 }
