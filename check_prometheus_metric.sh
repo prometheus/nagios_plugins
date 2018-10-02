@@ -7,7 +7,7 @@
 export LC_ALL=C
 
 # Default configuration:
-CURL_OPTS=""
+CURL_OPTS=()
 COMPARISON_METHOD=ge
 NAN_OK="false"
 NAGIOS_INFO="false"
@@ -98,7 +98,7 @@ function process_command_line {
                 fi
                 ;;
 
-      C)        CURL_OPTS="${OPTARG}"
+      C)        CURL_OPTS+=("${OPTARG}")
                 ;;
       O)        NAN_OK="true"
                 ;;
@@ -169,7 +169,7 @@ function get_prometheus_raw_result {
 
   local _RESULT
 
-  _RESULT=$(curl -sgG ${CURL_OPTS} --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | jq -r '.data.result')
+  _RESULT=$(curl -sgG "${CURL_OPTS[@]}" --data-urlencode "query=${PROMETHEUS_QUERY}" "${PROMETHEUS_SERVER}/api/v1/query" | jq -r '.data.result')
   printf '%s' "${_RESULT}"
 
 }
