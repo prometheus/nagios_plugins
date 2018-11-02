@@ -61,6 +61,9 @@ to work.
         -n NAME          A name for the metric being checked
         -m METHOD        Comparison method, one of gt, ge, lt, le, eq, ne
                          (defaults to ge unless otherwise specified)
+        -C CURL_OPTS     Additional flags to pass to curl.
+                         Can be passed multiple times. Options and option values must be passed separately.
+                         e.g. -C --conect-timetout -C 10 -C --cacert -C /path/to/ca.crt
         -O               Accept NaN as an "OK" result 
         -i               Print the extra metric information into the Nagios message
         -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector.
