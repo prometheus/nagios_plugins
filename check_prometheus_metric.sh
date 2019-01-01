@@ -11,6 +11,7 @@ CURL_OPTS=()
 COMPARISON_METHOD=ge
 NAN_OK="false"
 NAGIOS_INFO="false"
+PERFDATA="false"
 PROMETHEUS_QUERY_TYPE="scalar"
 
 # Nagios status codes:
@@ -39,7 +40,7 @@ function usage {
                                metrics. Requires curl and jq to be in $PATH.
 
   Usage:
-  check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O] [-i] [-t QUERY_TYPE]
+  check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O] [-i] [-p] [-t QUERY_TYPE]
 
   options:
     -H HOST          URL of Prometheus host to query.
@@ -54,6 +55,7 @@ function usage {
                      e.g. -C --conect-timetout -C 10 -C --cacert -C /path/to/ca.crt
     -O               Accept NaN as an "OK" result .
     -i               Print the extra metric information into the Nagios message.
+    -p               Add perfdata to check output.
     -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector.
                      The first element of the vector is used for the check.
 
@@ -63,7 +65,7 @@ EoL
 
 function process_command_line {
 
-  while getopts ':H:q:w:c:m:n:C:Oit:' OPT "$@"
+  while getopts ':H:q:w:c:m:n:C:Oipt:' OPT "$@"
   do
     case ${OPT} in
       H)        PROMETHEUS_SERVER="$OPTARG" ;;
@@ -106,6 +108,9 @@ function process_command_line {
                 ;;
 
       i)        NAGIOS_INFO="true"
+                ;;
+
+      p)        PERFDATA="true"
                 ;;
 
       t)        if [[ ${OPTARG} =~ ^(scalar|vector)$ ]]
@@ -266,6 +271,10 @@ fi
 if [[ "${NAGIOS_INFO}" = "true" ]]
 then
     NAGIOS_SHORT_TEXT="${NAGIOS_SHORT_TEXT}: ${PROMETHEUS_METRIC}"
+fi
+if [[ "${PERFDATA}" = "true" ]]
+then
+    NAGIOS_SHORT_TEXT="${NAGIOS_SHORT_TEXT} | query_result=${PROMETHEUS_RESULT}"
 fi
 
 exit
