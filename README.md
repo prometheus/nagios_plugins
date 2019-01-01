@@ -66,5 +66,6 @@ to work.
                          e.g. -C --conect-timetout -C 10 -C --cacert -C /path/to/ca.crt
         -O               Accept NaN as an "OK" result 
         -i               Print the extra metric information into the Nagios message
+        -p               Add perfdata to check output
         -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector.
                          The first element of the vector is used for the check.
