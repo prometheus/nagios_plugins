@@ -10,6 +10,7 @@ export LC_ALL=C
 CURL_OPTS=()
 COMPARISON_METHOD=ge
 NAN_OK="false"
+NULL_OK="false"
 NAGIOS_INFO="false"
 PERFDATA="false"
 PROMETHEUS_QUERY_TYPE="scalar"
@@ -40,7 +41,7 @@ function usage {
                                metrics. Requires curl and jq to be in $PATH.
 
   Usage:
-  check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O] [-i] [-p] [-t QUERY_TYPE]
+  check_prometheus_metric.sh -H HOST -q QUERY -w INT -c INT -n NAME [-m METHOD] [-O] [-0] [-i] [-p] [-t QUERY_TYPE]
 
   options:
     -H HOST          URL of Prometheus host to query.
@@ -53,7 +54,8 @@ function usage {
     -C CURL_OPTS     Additional flags to pass to curl.
                      Can be passed multiple times. Options and option values must be passed separately.
                      e.g. -C --conect-timetout -C 10 -C --cacert -C /path/to/ca.crt
-    -O               Accept NaN as an "OK" result .
+    -O               Accept NaN as an "OK" result.
+    -0               Accept null as an "OK" result.
     -i               Print the extra metric information into the Nagios message.
     -p               Add perfdata to check output.
     -t QUERY_TYPE    Prometheus query return type: scalar (default) or vector.
@@ -65,7 +67,7 @@ EoL
 
 function process_command_line {
 
-  while getopts ':H:q:w:c:m:n:C:Oipt:' OPT "$@"
+  while getopts ':H:q:w:c:m:n:C:O0ipt:' OPT "$@"
   do
     case ${OPT} in
       H)        PROMETHEUS_SERVER="$OPTARG" ;;
@@ -104,7 +106,11 @@ function process_command_line {
 
       C)        CURL_OPTS+=("${OPTARG}")
                 ;;
+
       O)        NAN_OK="true"
+                ;;
+
+      0)        NULL_OK="true"
                 ;;
 
       i)        NAGIOS_INFO="true"
@@ -260,6 +266,10 @@ then
   fi
 else
   if [[ "${NAN_OK}" = "true" && "${PROMETHEUS_RESULT}" = "NaN" ]]
+  then
+    NAGIOS_STATUS=OK
+    NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
+  elif [[ "${NULL_OK}" = "true" && "${PROMETHEUS_RESULT}" = "null" ]]
   then
     NAGIOS_STATUS=OK
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
