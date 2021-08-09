@@ -10,6 +10,7 @@ export LC_ALL=C
 CURL_OPTS=()
 COMPARISON_METHOD=ge
 NAN_OK="false"
+NULL_PATTERN="null|NaN"
 NAGIOS_INFO="false"
 PERFDATA="false"
 PROMETHEUS_QUERY_TYPE="scalar"
@@ -259,7 +260,7 @@ then
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
   fi
 else
-  if [[ "${NAN_OK}" = "true" && "${PROMETHEUS_RESULT}" = "NaN" ]]
+  if [[ "${NAN_OK}" = "true" && "${PROMETHEUS_RESULT}" ~= ${NULL_PATTERN} ]]
   then
     NAGIOS_STATUS=OK
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
