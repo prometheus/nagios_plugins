@@ -260,7 +260,7 @@ then
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
   fi
 else
-  if [[ "${NAN_OK}" = "true" && "${PROMETHEUS_RESULT}" ~= ${NULL_PATTERN} ]]
+  if [[ "${NAN_OK}" = "true" && "${PROMETHEUS_RESULT}" =~ ${NULL_PATTERN} ]]
   then
     NAGIOS_STATUS=OK
     NAGIOS_SHORT_TEXT="${METRIC_NAME} is ${PROMETHEUS_RESULT}"
