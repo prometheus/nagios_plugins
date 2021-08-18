@@ -2,11 +2,10 @@
 
 Nagios plugin (in fact only one) for alerting on prometheus query results.
 
-__This plugin is very simplistic. It is essentially a remnant from the early
-days of Prometheus at
-SoundCloud. [magenta-aps/check_prometheus_metric](https://github.com/magenta-aps/check_prometheus_metric)
-is an an actively maintained fork with added features, designed to be fully
-backwards compatible. Please consider a migration to the fork. Once it is sufficently mature, we plan to redirect from this repository to the fork.__
+__This repository has been archived. Please use
+[magenta-aps/check_prometheus_metric](https://github.com/magenta-aps/check_prometheus_metric)
+instead, which is an an actively maintained fork with added features, designed
+to be fully backwards compatible.__
 
 Examples of command line usage:
 ```
